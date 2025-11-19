@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+# Ignore output files and model artifacts
+experiments/retail_labour_demand/output/
+experiments/retail_labour_demand/models/
+experiments/retail_labour_demand/README_report.md
