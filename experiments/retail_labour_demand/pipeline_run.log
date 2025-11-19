@@ -1,0 +1,69 @@
+================================================================================
+RETAIL LABOR DEMAND FORECASTING PIPELINE
+Master Script - Running All Stages
+================================================================================
+
+================================================================================
+STAGE: 01: Data Loading & EDA
+Script: src/01_setup_and_load.py
+================================================================================
+
+================================================================================
+RETAIL LABOR DEMAND FORECASTING PIPELINE
+Section 1 & 2: Environment Setup and Data Loading
+================================================================================
+
+✓ Environment configured
+✓ Random seed: 42
+✓ Plot style: seaborn-v0_8-darkgrid
+
+================================================================================
+Loading Data
+================================================================================
+
+Loading sales data from: /home/user/experiments/experiments/retail_labour_demand/data/historical_sales_data/sales data-set.csv
+  Shape: (421570, 5)
+  Date range: 2010-02-05 00:00:00 to 2012-10-26 00:00:00
+  Stores: 45
+  Departments: 81
+
+Loading stores data from: /home/user/experiments/experiments/retail_labour_demand/data/historical_sales_data/stores data-set.csv
+  Shape: (45, 3)
+  Store types: ['A' 'B' 'C']
+  Size range: 34,875 to 219,622 sq ft
+
+Loading features data from: /home/user/experiments/experiments/retail_labour_demand/data/historical_sales_data/Features data set.csv
+  Shape: (8190, 12)
+  Date range: 2010-02-05 00:00:00 to 2013-07-26 00:00:00
+
+Loading BLS labor productivity data from: /home/user/experiments/experiments/retail_labour_demand/data/labour_productivity.csv
+Traceback (most recent call last):
+  File "/home/user/experiments/experiments/retail_labour_demand/src/01_setup_and_load.py", line 138, in <module>
+    bls_df['Value'] = bls_df['Value'].astype(float)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/core/generic.py", line 6534, in astype
+    new_data = self._mgr.astype(dtype=dtype, copy=copy, errors=errors)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/core/internals/managers.py", line 414, in astype
+    return self.apply(
+           ^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/core/internals/managers.py", line 354, in apply
+    applied = getattr(b, f)(**kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/core/internals/blocks.py", line 616, in astype
+    new_values = astype_array_safe(values, dtype, copy=copy, errors=errors)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/core/dtypes/astype.py", line 238, in astype_array_safe
+    new_values = astype_array(values, dtype, copy=copy)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/core/dtypes/astype.py", line 183, in astype_array
+    values = _astype_nansafe(values, dtype, copy=copy)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/core/dtypes/astype.py", line 134, in _astype_nansafe
+    return arr.astype(dtype, copy=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: could not convert string to float: '111.203%                                                                                             '
+
+================================================================================
+ERROR: 01: Data Loading & EDA failed with return code 1
+================================================================================
