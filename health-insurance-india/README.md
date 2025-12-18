@@ -1,16 +1,24 @@
 # Health Insurance India CLI 🏥
 
-An AI-powered CLI tool to query and understand health insurance policies in India using Anthropic's Claude Agents SDK.
+> An AI-powered CLI tool to query and understand health insurance policies in India using Anthropic's Claude Agents SDK.
 
-## Features ✨
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)](https://fastapi.tiangolo.com/)
+[![Anthropic](https://img.shields.io/badge/Anthropic-Claude--4-purple.svg)](https://www.anthropic.com/)
 
-- **Interactive Chat**: Chat with an AI agent that understands insurance policies
-- **Policy Search**: Search across multiple insurance documents
-- **Policy Comparison**: Compare policies side-by-side
-- **Premium Calculation**: Get estimated premiums
-- **Document Management**: Upload and manage your insurance documents
-- **Rich CLI Interface**: Beautiful terminal UI with Rich
-- **REST API**: FastAPI server for web integration
+Ask questions, compare policies, and get instant answers about health insurance in India - all from your terminal or API.
+
+## ✨ Features
+
+- 🤖 **AI Agent**: Powered by Anthropic Claude with Agents SDK
+- 💬 **Interactive Chat**: Natural language conversations about insurance
+- 📊 **Policy Comparison**: Side-by-side comparison of multiple policies
+- 🔍 **Smart Search**: Search across policy documents with context
+- 📈 **Premium Calculation**: Get estimated premium quotes
+- 📄 **Document Management**: Upload and manage your insurance documents
+- 🎨 **Beautiful CLI**: Rich terminal UI with colors and tables
+- 🌐 **REST API**: FastAPI server for web/mobile integration
+- 🐳 **Docker Ready**: Easy deployment with Docker Compose
 
 ## Architecture 🏗️
 
@@ -31,39 +39,56 @@ health-insurance-india/
 └── requirements.txt  # Dependencies
 ```
 
-## Installation 🚀
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.11+
-- Anthropic API key
+- Python 3.11 or higher
+- [Anthropic API key](https://console.anthropic.com/) (for AI features)
 
-### Setup
+### Installation
 
-1. Clone the repository:
 ```bash
+# Navigate to the project directory
 cd health-insurance-india
-```
 
-2. Install dependencies:
-```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-3. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
-```
+# Set your API key (optional, but required for AI features)
+export ANTHROPIC_API_KEY=sk-ant-your-key-here
 
-4. Initialize the database:
-```bash
+# Initialize the database
 python cli.py db init
+
+# Add sample policies for testing
+python cli.py db add-sample
+
+# Start using!
+python cli.py list-policies
 ```
 
-5. Add sample policies (optional):
+### Quick Demo (No API Key Required)
+
 ```bash
-python cli.py db add-sample
+# List available policies
+python cli.py list-policies
+
+# Check database status
+python cli.py db status
+```
+
+### With AI Agent (API Key Required)
+
+```bash
+# Interactive chat
+python cli.py chat
+
+# Ask a single question
+python cli.py ask "What are the waiting periods for pre-existing diseases?"
+
+# Compare policies
+python cli.py compare "Star Comprehensive,HDFC Optima Secure"
 ```
 
 ## Usage 📖
