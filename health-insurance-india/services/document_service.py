@@ -4,7 +4,7 @@ from typing import List, Optional
 from pathlib import Path
 from sqlalchemy.orm import Session
 from models.database import Document
-import PyMuPDF
+import pymupdf
 
 
 class DocumentService:
@@ -49,7 +49,7 @@ class DocumentService:
         
         if file_path.suffix.lower() == '.pdf':
             try:
-                doc = PyMuPDF.open(str(file_path))
+                doc = pymupdf.open(str(file_path))
                 page_count = len(doc)
                 for page in doc:
                     text += page.get_text()

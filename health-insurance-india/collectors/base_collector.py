@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict
 import requests
 from bs4 import BeautifulSoup
-import PyMuPDF
+import pymupdf
 from pathlib import Path
 import logging
 
@@ -55,7 +55,7 @@ class BaseCollector(ABC):
     def extract_text(self, pdf_path: Path) -> str:
         """Extract text from PDF"""
         try:
-            doc = PyMuPDF.open(str(pdf_path))
+            doc = pymupdf.open(str(pdf_path))
             text = ""
             for page in doc:
                 text += page.get_text()
