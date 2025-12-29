@@ -1,0 +1,30 @@
+# Environment variables
+.env
+
+# Output directories
+chatterbox_output/
+batch/
+test*/
+
+# Audio files (optional - you may want to keep these)
+*.wav
+*.mp3
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
