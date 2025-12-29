@@ -11,14 +11,14 @@ from typing import Any
 
 import runpod
 import torchaudio as ta
-from chatterbox.tts import ChatterboxTTS
+from chatterbox.tts_turbo import ChatterboxTurboTTS
 
 
 # Global model (loaded once on cold start)
-model: ChatterboxTTS | None = None
+model: ChatterboxTurboTTS | None = None
 
 
-def load_model() -> ChatterboxTTS:
+def load_model() -> ChatterboxTurboTTS:
     """Load the Chatterbox TTS model.
 
     Returns:
@@ -27,9 +27,9 @@ def load_model() -> ChatterboxTTS:
     global model
 
     if model is None:
-        print("Loading Chatterbox TTS model...")
+        print("Loading Chatterbox Turbo TTS model...")
 
-        model = ChatterboxTTS.from_pretrained(device="cuda")
+        model = ChatterboxTurboTTS.from_pretrained(device="cuda")
 
         print("Model loaded successfully!")
 
@@ -50,8 +50,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
         # Get parameters
         text = job_input["text"]
-        exaggeration = job_input.get("exaggeration", 1.0)
-        cfg_weight = job_input.get("cfg_weight", 0.7)
+        exaggeration = job_input.get("exaggeration", 0.5)
+        cfg_weight = job_input.get("cfg_weight", 0.5)
         temperature = job_input.get("temperature", 1.0)
 
         # Load model

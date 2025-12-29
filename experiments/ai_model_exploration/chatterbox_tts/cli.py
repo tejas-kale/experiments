@@ -84,8 +84,8 @@ class ChatterboxRunpodClient:
     def synthesize_speech(
         self,
         text: str,
-        exaggeration: float = 1.0,
-        cfg_weight: float = 0.7,
+        exaggeration: float = 0.5,
+        cfg_weight: float = 0.5,
         temperature: float = 1.0,
         voice: str = "default",
     ) -> bytes:
@@ -287,8 +287,8 @@ def preprocess(input_file: Path, output_file: Path) -> None:
 @click.argument("text", type=str, required=False)
 @click.option("--file", "-F", type=click.Path(exists=True, path_type=Path), help="Read text from file")
 @click.option("--save-preprocessed", type=click.Path(path_type=Path), help="Save preprocessed text to file")
-@click.option("--exaggeration", "-e", default=1.0, type=float, help="Emotion exaggeration (0.25-2.0)")
-@click.option("--cfg-weight", "-c", default=0.7, type=float, help="CFG weight (0.0-1.0)")
+@click.option("--exaggeration", "-e", default=0.5, type=float, help="Emotion exaggeration (0.25-2.0)")
+@click.option("--cfg-weight", "-c", default=0.5, type=float, help="CFG weight (0.0-1.0)")
 @click.option("--temperature", "-t", default=1.0, type=float, help="Temperature (0.05-5.0)")
 @click.option("--speed", "-s", default=0.85, type=float, help="Playback speed (0.5-2.0, default 0.85 for slower)")
 @click.option("--voice", "-v", default="default", help="Voice name")

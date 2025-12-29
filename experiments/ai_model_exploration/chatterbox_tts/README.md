@@ -1,10 +1,10 @@
-# Chatterbox TTS on Runpod
+# Chatterbox Turbo TTS on Runpod
 
-A CLI tool to run Chatterbox TTS on Runpod GPU instances for high-quality text-to-speech synthesis with emotion control.
+A CLI tool to run Chatterbox Turbo TTS on Runpod GPU instances for high-quality text-to-speech synthesis with emotion control and low latency.
 
-## What is Chatterbox TTS?
+## What is Chatterbox Turbo TTS?
 
-Chatterbox is a state-of-the-art, open-source text-to-speech (TTS) model from Resemble AI. It's the first open-source TTS model to support emotion exaggeration control, allowing you to modulate emotional intensity in generated speech.
+Chatterbox Turbo is a state-of-the-art, optimized text-to-speech (TTS) model from Resemble AI. It's a distilled version of the original Chatterbox model, achieving 10x faster inference with the same high-quality output. The Turbo model supports emotion exaggeration control and native paralinguistic tags for realistic speech.
 
 ### Key Capabilities
 
@@ -30,10 +30,13 @@ Chatterbox is a state-of-the-art, open-source text-to-speech (TTS) model from Re
 
 ### Model Architecture
 
-- **Base**: Chatterbox TTS (350M parameters for turbo variant)
+- **Model**: Chatterbox Turbo TTS (350M parameters, distilled)
+- **Mel Decoder**: 1-step (vs 10-step in original) for 10x faster inference
+- **Latency**: Sub-200ms for real-time applications
 - **Framework**: PyTorch with custom architecture
 - **License**: MIT License (fully open source)
 - **Provider**: Resemble AI
+- **Model ID**: `ResembleAI/chatterbox-turbo`
 
 ---
 
@@ -142,11 +145,16 @@ python cli.py speak "Your text here" \
 
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
-| `--exaggeration` | `-e` | `1.0` | Emotion intensity (0.25-2.0) |
-| `--cfg-weight` | `-c` | `0.7` | Guidance weight (0.0-1.0) |
+| `--exaggeration` | `-e` | `0.5` | Emotion intensity (0.25-2.0) |
+| `--cfg-weight` | `-c` | `0.5` | Guidance weight (0.0-1.0) |
 | `--temperature` | `-t` | `1.0` | Sampling randomness (0.05-5.0) |
+| `--speed` | `-s` | `0.85` | Playback speed (0.5-2.0, slower for better comprehension) |
 | `--voice` | `-v` | `default` | Voice name |
 | `--output` | `-o` | `./chatterbox_output/speech_<timestamp>.wav` | Output file |
+| `--format` | `-f` | `wav` | Output format (wav or mp3) |
+| `--bitrate` | `-b` | `192k` | MP3 bitrate (e.g., 128k, 192k, 320k) |
+| `--file` | `-F` | None | Read text from file instead of argument |
+| `--save-preprocessed` | | None | Save preprocessed text to file for review |
 | `--play/--no-play` | | `True` | Auto-play after generation |
 | `--gpu` | | `NVIDIA RTX 3060 Ti` | GPU type to use |
 
