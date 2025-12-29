@@ -125,17 +125,44 @@ class ChatterboxRunpodClient:
                 time.sleep(2)
 
 
-def convert_to_mp3(wav_path: Path, mp3_path: Path, bitrate: str = "192k") -> None:
+def adjust_speed(audio: AudioSegment, speed: float) -> AudioSegment:
+    """Adjust audio playback speed.
+
+    Args:
+        audio: Input audio segment
+        speed: Speed multiplier (0.5 = half speed, 2.0 = double speed)
+
+    Returns:
+        Speed-adjusted audio segment
+    """
+    # Change frame rate to adjust speed
+    sound_with_altered_frame_rate = audio._spawn(
+        audio.raw_data, overrides={"frame_rate": int(audio.frame_rate * speed)}
+    )
+    # Convert back to original frame rate to maintain pitch
+    return sound_with_altered_frame_rate.set_frame_rate(audio.frame_rate)
+
+
+def convert_to_mp3(
+    wav_path: Path, mp3_path: Path, bitrate: str = "192k", speed: float = 1.0
+) -> None:
     """Convert WAV file to MP3.
 
     Args:
         wav_path: Path to input WAV file
         mp3_path: Path to output MP3 file
         bitrate: MP3 bitrate (default: 192k)
+        speed: Speed multiplier (default: 1.0)
     """
     console.print(f"[yellow]Converting to MP3 (bitrate: {bitrate})...[/yellow]")
 
     audio = AudioSegment.from_wav(str(wav_path))
+
+    # Adjust speed if needed
+    if speed != 1.0:
+        console.print(f"[yellow]Adjusting speed ({speed}x)...[/yellow]")
+        audio = adjust_speed(audio, speed)
+
     audio.export(str(mp3_path), format="mp3", bitrate=bitrate)
 
     console.print(f"[green]✓ MP3 saved to {mp3_path}[/green]")
@@ -171,10 +198,12 @@ def cli() -> None:
 
 
 @cli.command()
-@click.argument("text", type=str)
+@click.argument("text", type=str, required=False)
+@click.option("--file", "-F", type=click.Path(exists=True, path_type=Path), help="Read text from file")
 @click.option("--exaggeration", "-e", default=1.0, type=float, help="Emotion exaggeration (0.25-2.0)")
 @click.option("--cfg-weight", "-c", default=0.7, type=float, help="CFG weight (0.0-1.0)")
 @click.option("--temperature", "-t", default=1.0, type=float, help="Temperature (0.05-5.0)")
+@click.option("--speed", "-s", default=0.85, type=float, help="Playback speed (0.5-2.0, default 0.85 for slower)")
 @click.option("--voice", "-v", default="default", help="Voice name")
 @click.option("--output", "-o", type=click.Path(path_type=Path), default=None, help="Output file path")
 @click.option("--format", "-f", type=click.Choice(["wav", "mp3"]), default="wav", help="Output format (wav or mp3)")
@@ -182,10 +211,12 @@ def cli() -> None:
 @click.option("--play/--no-play", default=True, help="Auto-play audio after generation")
 @click.option("--endpoint-id", type=str, default=None, help="Runpod endpoint ID (optional, uses env var if not provided)")
 def speak(
-    text: str,
+    text: str | None,
+    file: Path | None,
     exaggeration: float,
     cfg_weight: float,
     temperature: float,
+    speed: float,
     voice: str,
     output: Path | None,
     format: str,
@@ -193,7 +224,7 @@ def speak(
     play: bool,
     endpoint_id: str | None,
 ) -> None:
-    """Synthesize speech from text."""
+    """Synthesize speech from text or file."""
     # Display banner
     console.print()
     console.print(Panel.fit(
@@ -201,6 +232,25 @@ def speak(
         "[dim]Text-to-Speech Synthesis on Runpod[/dim]",
         border_style="magenta",
     ))
+
+    # Get text from argument or file
+    if text and file:
+        console.print("[red]✗ Cannot specify both text and --file[/red]")
+        console.print("[yellow]Use either: 'python cli.py speak \"text\"' or 'python cli.py speak --file text.txt'[/yellow]")
+        return
+
+    if not text and not file:
+        console.print("[red]✗ Must provide either text or --file[/red]")
+        console.print("[yellow]Usage: 'python cli.py speak \"text\"' or 'python cli.py speak --file text.txt'[/yellow]")
+        return
+
+    if file:
+        console.print(f"[cyan]Reading text from {file}...[/cyan]")
+        text = file.read_text(encoding="utf-8").strip()
+        if not text:
+            console.print("[red]✗ File is empty[/red]")
+            return
+        console.print(f"[green]✓ Loaded {len(text)} characters from file[/green]\n")
 
     # Validate API key
     api_key = os.getenv("RUNPOD_API_KEY")
@@ -235,10 +285,13 @@ def speak(
     table = Table(title="Synthesis Parameters", show_header=False)
     table.add_column("Parameter", style="magenta")
     table.add_column("Value", style="yellow")
+    if file:
+        table.add_row("Input Source", f"File: {file.name}")
     table.add_row("Text Length", f"{len(text)} characters")
     table.add_row("Exaggeration", str(exaggeration))
     table.add_row("CFG Weight", str(cfg_weight))
     table.add_row("Temperature", str(temperature))
+    table.add_row("Speed", f"{speed}x")
     table.add_row("Voice", voice)
     table.add_row("Format", format.upper())
     if format == "mp3":
@@ -260,27 +313,38 @@ def speak(
             voice=voice,
         )
 
-        # Save audio
-        if format == "wav":
-            # Save directly as WAV
-            console.print(f"\n[yellow]Saving audio to {output}...[/yellow]")
-            with open(output, "wb") as f:
-                f.write(audio_bytes)
-            console.print(f"[green]✓ Audio saved to {output}[/green]")
-            final_output = output
-        else:
-            # Save as WAV first, then convert to MP3
-            temp_wav = output.with_suffix(".wav.temp")
-            console.print(f"\n[yellow]Saving temporary WAV file...[/yellow]")
-            with open(temp_wav, "wb") as f:
-                f.write(audio_bytes)
+        # Save audio (always starts as WAV from Runpod)
+        temp_wav = output.with_suffix(".wav.temp")
+        console.print(f"\n[yellow]Saving audio...[/yellow]")
+        with open(temp_wav, "wb") as f:
+            f.write(audio_bytes)
 
-            # Convert to MP3
-            convert_to_mp3(temp_wav, output, bitrate=bitrate)
+        # Process audio (speed adjustment)
+        if speed != 1.0 or format == "mp3":
+            audio = AudioSegment.from_wav(str(temp_wav))
 
-            # Remove temporary WAV
+            # Adjust speed
+            if speed != 1.0:
+                console.print(f"[yellow]Adjusting speed to {speed}x...[/yellow]")
+                audio = adjust_speed(audio, speed)
+
+            # Export in final format
+            if format == "mp3":
+                console.print(f"[yellow]Converting to MP3 (bitrate: {bitrate})...[/yellow]")
+                audio.export(str(output), format="mp3", bitrate=bitrate)
+            else:
+                # Save as WAV with speed adjustment
+                audio.export(str(output), format="wav")
+
+            # Remove temp file
             temp_wav.unlink()
-            final_output = output
+            console.print(f"[green]✓ Audio saved to {output}[/green]")
+        else:
+            # No processing needed, just rename temp to final
+            temp_wav.rename(output)
+            console.print(f"[green]✓ Audio saved to {output}[/green]")
+
+        final_output = output
 
         # Play audio
         if play:
