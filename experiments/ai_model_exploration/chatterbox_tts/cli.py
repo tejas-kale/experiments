@@ -27,6 +27,46 @@ console = Console()
 load_dotenv()
 
 
+def preprocess_text(text: str) -> str:
+    """Preprocess text for better TTS quality.
+
+    Args:
+        text: Raw input text
+
+    Returns:
+        Cleaned text suitable for TTS
+    """
+    lines = text.split('\n')
+    paragraphs = []
+    current_paragraph = []
+
+    for line in lines:
+        # Strip leading/trailing whitespace
+        cleaned_line = line.strip()
+
+        if not cleaned_line:
+            # Empty line = paragraph break
+            if current_paragraph:
+                # Join lines in current paragraph
+                paragraphs.append(' '.join(current_paragraph))
+                current_paragraph = []
+        else:
+            current_paragraph.append(cleaned_line)
+
+    # Add final paragraph
+    if current_paragraph:
+        paragraphs.append(' '.join(current_paragraph))
+
+    # Join paragraphs with double newline
+    result = '\n\n'.join(paragraphs)
+
+    # Normalize multiple spaces to single space
+    import re
+    result = re.sub(r' +', ' ', result)
+
+    return result
+
+
 class ChatterboxRunpodClient:
     """Client for managing Chatterbox TTS on Runpod."""
 
@@ -246,11 +286,15 @@ def speak(
 
     if file:
         console.print(f"[cyan]Reading text from {file}...[/cyan]")
-        text = file.read_text(encoding="utf-8").strip()
-        if not text:
+        raw_text = file.read_text(encoding="utf-8").strip()
+        if not raw_text:
             console.print("[red]✗ File is empty[/red]")
             return
-        console.print(f"[green]✓ Loaded {len(text)} characters from file[/green]\n")
+
+        # Preprocess text to clean formatting issues
+        text = preprocess_text(raw_text)
+        console.print(f"[green]✓ Loaded {len(text)} characters from file[/green]")
+        console.print(f"[dim]Preprocessed: removed formatting/indentation[/dim]\n")
 
     # Validate API key
     api_key = os.getenv("RUNPOD_API_KEY")
