@@ -46,6 +46,7 @@ Chatterbox Turbo is a state-of-the-art, optimized text-to-speech (TTS) model fro
 - Python 3.11+
 - macOS (developed and tested)
 - Runpod account with API key
+- Hugging Face account with access token (for model download)
 - ~$9 in Runpod credits (estimates below)
 - Audio player (`afplay` on macOS, included by default)
 
@@ -100,7 +101,15 @@ uv pip install -r requirements.txt
    RUNPOD_API_KEY=your_actual_api_key_here
    ```
 
-### 5. Setup Runpod Template (One-Time Setup)
+### 5. Get Hugging Face Token
+
+**IMPORTANT**: Chatterbox Turbo requires authentication to download the model.
+
+1. Go to [Hugging Face Settings - Tokens](https://huggingface.co/settings/tokens)
+2. Create a new token (read access is sufficient)
+3. Copy the token - you'll need it when setting up the Runpod endpoint
+
+### 6. Setup Runpod Template (One-Time Setup)
 
 You need to create a custom Runpod template with the handler script:
 
@@ -112,9 +121,11 @@ You need to create a custom Runpod template with the handler script:
    - **Container Disk**: 15 GB
    - **Start Command**:
      ```bash
-     pip install chatterbox-tts runpod && python runpod_handler.py
+     pip install chatterbox-tts runpod huggingface-hub && python runpod_handler.py
      ```
-   - **Environment Variables**: (none required)
+   - **Environment Variables**:
+     - **Name**: `HF_TOKEN`
+     - **Value**: Your Hugging Face token from step 5
 4. Upload `runpod_handler.py` to the template
 5. Save template
 

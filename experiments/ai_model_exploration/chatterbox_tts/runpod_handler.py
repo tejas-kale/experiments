@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import base64
 import io
+import os
 from typing import Any
 
 import runpod
 import torchaudio as ta
 from chatterbox.tts_turbo import ChatterboxTurboTTS
+from huggingface_hub import login
 
 
 # Global model (loaded once on cold start)
@@ -27,10 +29,19 @@ def load_model() -> ChatterboxTurboTTS:
     global model
 
     if model is None:
+        # Authenticate with Hugging Face
+        hf_token = os.getenv("HF_TOKEN")
+        if not hf_token:
+            raise ValueError(
+                "HF_TOKEN environment variable is required for Chatterbox Turbo. "
+                "Please set it in your Runpod endpoint configuration."
+            )
+
+        print("Authenticating with Hugging Face...")
+        login(token=hf_token)
+
         print("Loading Chatterbox Turbo TTS model...")
-
         model = ChatterboxTurboTTS.from_pretrained(device="cuda")
-
         print("Model loaded successfully!")
 
     return model

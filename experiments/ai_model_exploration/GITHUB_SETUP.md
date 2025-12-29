@@ -54,13 +54,26 @@ This guide uses Runpod's GitHub integration for the simplest setup experience.
 - Idle: `5 seconds`
 - Execution: `600 seconds` (10 minutes)
 
-#### D. Deploy
+#### D. Set Environment Variables
+
+**IMPORTANT**: Chatterbox Turbo requires a Hugging Face token to download the model.
+
+1. Get your Hugging Face token:
+   - Go to https://huggingface.co/settings/tokens
+   - Create a new token (read access is sufficient)
+   - Copy the token
+
+2. In the Runpod endpoint configuration, add environment variable:
+   - **Name**: `HF_TOKEN`
+   - **Value**: Your Hugging Face token (paste it here)
+
+#### E. Deploy
 
 1. Click **"Deploy"**
 2. Wait 2-3 minutes for build (first time only)
 3. Copy the **Endpoint ID** from the endpoint details page
 
-#### E. Configure Local Environment
+#### F. Configure Local Environment
 
 ```bash
 cd experiments/ai_model_exploration/chatterbox_tts
@@ -73,7 +86,7 @@ RUNPOD_API_KEY=your_api_key_here
 RUNPOD_ENDPOINT_ID=your_endpoint_id_here
 ```
 
-#### F. Test It
+#### G. Test It
 
 ```bash
 python cli.py speak "Hello! Testing Chatterbox TTS." --exaggeration 1.5
@@ -181,6 +194,18 @@ Enable automatic redeployment on git push:
 ### Endpoint Not Ready
 
 First build takes 5-10 minutes (downloads models). Check build logs in Runpod console.
+
+### Hugging Face Token Error
+
+**Error**: `Token is required, but no token found`
+
+**Solution**:
+1. Verify HF_TOKEN is set in endpoint environment variables
+2. Get token from https://huggingface.co/settings/tokens
+3. In Runpod endpoint settings, add:
+   - Name: `HF_TOKEN`
+   - Value: Your Hugging Face token
+4. Rebuild/restart the endpoint after adding the token
 
 ### GitHub Connection Issues
 
