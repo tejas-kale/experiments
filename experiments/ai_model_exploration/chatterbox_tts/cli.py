@@ -15,6 +15,7 @@ from pathlib import Path
 import click
 import requests
 from dotenv import load_dotenv
+from pydub import AudioSegment
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -124,6 +125,22 @@ class ChatterboxRunpodClient:
                 time.sleep(2)
 
 
+def convert_to_mp3(wav_path: Path, mp3_path: Path, bitrate: str = "192k") -> None:
+    """Convert WAV file to MP3.
+
+    Args:
+        wav_path: Path to input WAV file
+        mp3_path: Path to output MP3 file
+        bitrate: MP3 bitrate (default: 192k)
+    """
+    console.print(f"[yellow]Converting to MP3 (bitrate: {bitrate})...[/yellow]")
+
+    audio = AudioSegment.from_wav(str(wav_path))
+    audio.export(str(mp3_path), format="mp3", bitrate=bitrate)
+
+    console.print(f"[green]✓ MP3 saved to {mp3_path}[/green]")
+
+
 def play_audio(audio_path: Path) -> None:
     """Play audio file using system default player.
 
@@ -160,6 +177,8 @@ def cli() -> None:
 @click.option("--temperature", "-t", default=1.0, type=float, help="Temperature (0.05-5.0)")
 @click.option("--voice", "-v", default="default", help="Voice name")
 @click.option("--output", "-o", type=click.Path(path_type=Path), default=None, help="Output file path")
+@click.option("--format", "-f", type=click.Choice(["wav", "mp3"]), default="wav", help="Output format (wav or mp3)")
+@click.option("--bitrate", "-b", default="192k", help="MP3 bitrate (e.g., 128k, 192k, 320k)")
 @click.option("--play/--no-play", default=True, help="Auto-play audio after generation")
 @click.option("--endpoint-id", type=str, default=None, help="Runpod endpoint ID (optional, uses env var if not provided)")
 def speak(
@@ -169,6 +188,8 @@ def speak(
     temperature: float,
     voice: str,
     output: Path | None,
+    format: str,
+    bitrate: str,
     play: bool,
     endpoint_id: str | None,
 ) -> None:
@@ -200,8 +221,15 @@ def speak(
 
     # Setup output path
     if output is None:
-        output = Path.cwd() / "chatterbox_output" / f"speech_{int(time.time())}.wav"
+        ext = "mp3" if format == "mp3" else "wav"
+        output = Path.cwd() / "chatterbox_output" / f"speech_{int(time.time())}.{ext}"
     output.parent.mkdir(parents=True, exist_ok=True)
+
+    # Ensure output has correct extension
+    if format == "mp3" and not str(output).endswith(".mp3"):
+        output = output.with_suffix(".mp3")
+    elif format == "wav" and not str(output).endswith(".wav"):
+        output = output.with_suffix(".wav")
 
     # Display parameters
     table = Table(title="Synthesis Parameters", show_header=False)
@@ -212,6 +240,9 @@ def speak(
     table.add_row("CFG Weight", str(cfg_weight))
     table.add_row("Temperature", str(temperature))
     table.add_row("Voice", voice)
+    table.add_row("Format", format.upper())
+    if format == "mp3":
+        table.add_row("Bitrate", bitrate)
     table.add_row("Endpoint ID", endpoint_id)
     table.add_row("Output File", str(output))
     console.print(table)
@@ -230,15 +261,31 @@ def speak(
         )
 
         # Save audio
-        console.print(f"\n[yellow]Saving audio to {output}...[/yellow]")
-        with open(output, "wb") as f:
-            f.write(audio_bytes)
-        console.print(f"[green]✓ Audio saved to {output}[/green]")
+        if format == "wav":
+            # Save directly as WAV
+            console.print(f"\n[yellow]Saving audio to {output}...[/yellow]")
+            with open(output, "wb") as f:
+                f.write(audio_bytes)
+            console.print(f"[green]✓ Audio saved to {output}[/green]")
+            final_output = output
+        else:
+            # Save as WAV first, then convert to MP3
+            temp_wav = output.with_suffix(".wav.temp")
+            console.print(f"\n[yellow]Saving temporary WAV file...[/yellow]")
+            with open(temp_wav, "wb") as f:
+                f.write(audio_bytes)
+
+            # Convert to MP3
+            convert_to_mp3(temp_wav, output, bitrate=bitrate)
+
+            # Remove temporary WAV
+            temp_wav.unlink()
+            final_output = output
 
         # Play audio
         if play:
             console.print("\n[yellow]Playing audio...[/yellow]")
-            play_audio(output)
+            play_audio(final_output)
 
         console.print(f"\n[bold green]✓ Synthesis complete![/bold green]\n")
 
