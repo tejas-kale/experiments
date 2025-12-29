@@ -10,11 +10,9 @@ import io
 import os
 import time
 from pathlib import Path
-from typing import Optional
 
 import click
 import requests
-import runpod
 from dotenv import load_dotenv
 from PIL import Image
 from rich.console import Console
@@ -31,84 +29,16 @@ load_dotenv()
 class QwenRunpodClient:
     """Client for managing Qwen-Image-Layered on Runpod."""
 
-    def __init__(self, api_key: str):
-        """Initialize the client with Runpod API key.
+    def __init__(self, api_key: str, endpoint_id: str):
+        """Initialize the client with Runpod API key and endpoint ID.
 
         Args:
             api_key: Runpod API key
+            endpoint_id: Runpod endpoint ID
         """
         self.api_key = api_key
-        runpod.api_key = api_key
-        self.endpoint_id: Optional[str] = None
-        self.endpoint_url: Optional[str] = None
-
-    def create_endpoint(
-        self, gpu_type: str = "NVIDIA RTX 3090", min_workers: int = 1
-    ) -> dict[str, str]:
-        """Create a serverless endpoint for Qwen-Image-Layered.
-
-        Args:
-            gpu_type: GPU type to use
-            min_workers: Minimum number of workers
-
-        Returns:
-            Dictionary with endpoint_id and endpoint_url
-        """
-        console.print(f"\n[yellow]Creating Runpod endpoint with {gpu_type}...[/yellow]")
-
-        try:
-            # Create serverless endpoint
-            endpoint = runpod.create_endpoint(
-                name=f"qwen-image-layered-{int(time.time())}",
-                template_id="runpod-qwen-image-layered",  # Custom template
-                gpu_type_id=gpu_type,
-                workers_min=min_workers,
-                workers_max=1,
-            )
-
-            self.endpoint_id = endpoint["id"]
-            self.endpoint_url = endpoint["url"]
-
-            console.print(f"[green]✓ Endpoint created: {self.endpoint_id}[/green]")
-            return {"endpoint_id": self.endpoint_id, "endpoint_url": self.endpoint_url}
-
-        except Exception as e:
-            console.print(f"[red]✗ Failed to create endpoint: {e}[/red]")
-            raise
-
-    def wait_for_endpoint(self, timeout: int = 300) -> bool:
-        """Wait for endpoint to be ready.
-
-        Args:
-            timeout: Maximum wait time in seconds
-
-        Returns:
-            True if ready, False if timeout
-        """
-        console.print("[yellow]Waiting for endpoint to be ready...[/yellow]")
-
-        start_time = time.time()
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Initializing...", total=None)
-
-            while time.time() - start_time < timeout:
-                try:
-                    status = runpod.get_endpoint(self.endpoint_id)
-                    if status["status"] == "RUNNING":
-                        progress.update(task, description="[green]Ready!")
-                        console.print("[green]✓ Endpoint is ready[/green]")
-                        return True
-                except Exception:
-                    pass
-
-                time.sleep(5)
-
-        console.print("[red]✗ Timeout waiting for endpoint[/red]")
-        return False
+        self.endpoint_id = endpoint_id
+        self.endpoint_url = f"https://api.runpod.ai/v2/{endpoint_id}"
 
     def generate_layers(
         self,
@@ -204,22 +134,6 @@ class QwenRunpodClient:
 
                 time.sleep(3)
 
-    def delete_endpoint(self) -> None:
-        """Delete the Runpod endpoint."""
-        if not self.endpoint_id:
-            console.print("[yellow]No endpoint to delete[/yellow]")
-            return
-
-        console.print(f"\n[yellow]Deleting endpoint {self.endpoint_id}...[/yellow]")
-
-        try:
-            runpod.delete_endpoint(self.endpoint_id)
-            console.print("[green]✓ Endpoint deleted[/green]")
-            self.endpoint_id = None
-            self.endpoint_url = None
-        except Exception as e:
-            console.print(f"[red]✗ Failed to delete endpoint: {e}[/red]")
-
 
 @click.group()
 def cli() -> None:
@@ -229,20 +143,20 @@ def cli() -> None:
 
 @cli.command()
 @click.argument("image_path", type=click.Path(exists=True, path_type=Path))
-@click.option("--layers", "-l", default=4, type=click.Choice(["3", "4", "8"]), help="Number of layers")
-@click.option("--resolution", "-r", default=640, type=click.Choice(["640", "1024"]), help="Output resolution")
+@click.option("--layers", "-l", default="4", type=click.Choice(["3", "4", "8"]), help="Number of layers")
+@click.option("--resolution", "-r", default="640", type=click.Choice(["640", "1024"]), help="Output resolution")
 @click.option("--steps", "-s", default=50, type=int, help="Number of inference steps")
 @click.option("--cfg-scale", "-c", default=4.0, type=float, help="CFG scale")
 @click.option("--output-dir", "-o", type=click.Path(path_type=Path), default=None, help="Output directory")
-@click.option("--gpu", default="NVIDIA RTX 3090", help="GPU type (default: RTX 3090)")
+@click.option("--endpoint-id", type=str, default=None, help="Runpod endpoint ID (optional, uses env var if not provided)")
 def generate(
     image_path: Path,
     layers: str,
     resolution: str,
     steps: int,
     cfg_scale: float,
-    output_dir: Optional[Path],
-    gpu: str,
+    output_dir: Path | None,
+    endpoint_id: str | None,
 ) -> None:
     """Generate layered images from an input image."""
     # Display banner
@@ -260,6 +174,16 @@ def generate(
         console.print("[yellow]Please set it in .env file or environment variables[/yellow]")
         return
 
+    # Get endpoint ID
+    if endpoint_id is None:
+        endpoint_id = os.getenv("RUNPOD_ENDPOINT_ID")
+
+    if not endpoint_id:
+        console.print("[red]✗ RUNPOD_ENDPOINT_ID not found[/red]")
+        console.print("[yellow]Please set it in .env file or pass --endpoint-id[/yellow]")
+        console.print("[yellow]Create an endpoint at: https://www.runpod.io/console/serverless[/yellow]")
+        return
+
     # Setup output directory
     if output_dir is None:
         output_dir = Path.cwd() / "qwen_output"
@@ -274,22 +198,14 @@ def generate(
     table.add_row("Resolution", f"{resolution}px")
     table.add_row("Inference Steps", str(steps))
     table.add_row("CFG Scale", str(cfg_scale))
-    table.add_row("GPU Type", gpu)
+    table.add_row("Endpoint ID", endpoint_id)
     table.add_row("Output Directory", str(output_dir))
     console.print(table)
 
     # Initialize client
-    client = QwenRunpodClient(api_key)
+    client = QwenRunpodClient(api_key, endpoint_id)
 
     try:
-        # Create endpoint
-        client.create_endpoint(gpu_type=gpu)
-
-        # Wait for ready
-        if not client.wait_for_endpoint():
-            console.print("[red]Endpoint failed to initialize[/red]")
-            return
-
         # Generate layers
         layer_images = client.generate_layers(
             image_path=image_path,
@@ -309,9 +225,9 @@ def generate(
 
         console.print(f"\n[bold green]✓ All layers saved to {output_dir}[/bold green]\n")
 
-    finally:
-        # Cleanup
-        client.delete_endpoint()
+    except Exception as e:
+        console.print(f"\n[red]✗ Error: {e}[/red]\n")
+        raise
 
 
 if __name__ == "__main__":

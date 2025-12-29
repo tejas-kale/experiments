@@ -11,11 +11,9 @@ import platform
 import subprocess
 import time
 from pathlib import Path
-from typing import Optional
 
 import click
 import requests
-import runpod
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
@@ -31,84 +29,16 @@ load_dotenv()
 class ChatterboxRunpodClient:
     """Client for managing Chatterbox TTS on Runpod."""
 
-    def __init__(self, api_key: str):
-        """Initialize the client with Runpod API key.
+    def __init__(self, api_key: str, endpoint_id: str):
+        """Initialize the client with Runpod API key and endpoint ID.
 
         Args:
             api_key: Runpod API key
+            endpoint_id: Runpod endpoint ID
         """
         self.api_key = api_key
-        runpod.api_key = api_key
-        self.endpoint_id: Optional[str] = None
-        self.endpoint_url: Optional[str] = None
-
-    def create_endpoint(
-        self, gpu_type: str = "NVIDIA RTX 3060 Ti", min_workers: int = 1
-    ) -> dict[str, str]:
-        """Create a serverless endpoint for Chatterbox TTS.
-
-        Args:
-            gpu_type: GPU type to use
-            min_workers: Minimum number of workers
-
-        Returns:
-            Dictionary with endpoint_id and endpoint_url
-        """
-        console.print(f"\n[yellow]Creating Runpod endpoint with {gpu_type}...[/yellow]")
-
-        try:
-            # Create serverless endpoint
-            endpoint = runpod.create_endpoint(
-                name=f"chatterbox-tts-{int(time.time())}",
-                template_id="runpod-chatterbox-tts",  # Custom template
-                gpu_type_id=gpu_type,
-                workers_min=min_workers,
-                workers_max=1,
-            )
-
-            self.endpoint_id = endpoint["id"]
-            self.endpoint_url = endpoint["url"]
-
-            console.print(f"[green]✓ Endpoint created: {self.endpoint_id}[/green]")
-            return {"endpoint_id": self.endpoint_id, "endpoint_url": self.endpoint_url}
-
-        except Exception as e:
-            console.print(f"[red]✗ Failed to create endpoint: {e}[/red]")
-            raise
-
-    def wait_for_endpoint(self, timeout: int = 300) -> bool:
-        """Wait for endpoint to be ready.
-
-        Args:
-            timeout: Maximum wait time in seconds
-
-        Returns:
-            True if ready, False if timeout
-        """
-        console.print("[yellow]Waiting for endpoint to be ready...[/yellow]")
-
-        start_time = time.time()
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Initializing...", total=None)
-
-            while time.time() - start_time < timeout:
-                try:
-                    status = runpod.get_endpoint(self.endpoint_id)
-                    if status["status"] == "RUNNING":
-                        progress.update(task, description="[green]Ready!")
-                        console.print("[green]✓ Endpoint is ready[/green]")
-                        return True
-                except Exception:
-                    pass
-
-                time.sleep(5)
-
-        console.print("[red]✗ Timeout waiting for endpoint[/red]")
-        return False
+        self.endpoint_id = endpoint_id
+        self.endpoint_url = f"https://api.runpod.ai/v2/{endpoint_id}"
 
     def synthesize_speech(
         self,
@@ -193,22 +123,6 @@ class ChatterboxRunpodClient:
 
                 time.sleep(2)
 
-    def delete_endpoint(self) -> None:
-        """Delete the Runpod endpoint."""
-        if not self.endpoint_id:
-            console.print("[yellow]No endpoint to delete[/yellow]")
-            return
-
-        console.print(f"\n[yellow]Deleting endpoint {self.endpoint_id}...[/yellow]")
-
-        try:
-            runpod.delete_endpoint(self.endpoint_id)
-            console.print("[green]✓ Endpoint deleted[/green]")
-            self.endpoint_id = None
-            self.endpoint_url = None
-        except Exception as e:
-            console.print(f"[red]✗ Failed to delete endpoint: {e}[/red]")
-
 
 def play_audio(audio_path: Path) -> None:
     """Play audio file using system default player.
@@ -247,16 +161,16 @@ def cli() -> None:
 @click.option("--voice", "-v", default="default", help="Voice name")
 @click.option("--output", "-o", type=click.Path(path_type=Path), default=None, help="Output file path")
 @click.option("--play/--no-play", default=True, help="Auto-play audio after generation")
-@click.option("--gpu", default="NVIDIA RTX 3060 Ti", help="GPU type (default: RTX 3060 Ti)")
+@click.option("--endpoint-id", type=str, default=None, help="Runpod endpoint ID (optional, uses env var if not provided)")
 def speak(
     text: str,
     exaggeration: float,
     cfg_weight: float,
     temperature: float,
     voice: str,
-    output: Optional[Path],
+    output: Path | None,
     play: bool,
-    gpu: str,
+    endpoint_id: str | None,
 ) -> None:
     """Synthesize speech from text."""
     # Display banner
@@ -274,6 +188,16 @@ def speak(
         console.print("[yellow]Please set it in .env file or environment variables[/yellow]")
         return
 
+    # Get endpoint ID
+    if endpoint_id is None:
+        endpoint_id = os.getenv("RUNPOD_ENDPOINT_ID")
+
+    if not endpoint_id:
+        console.print("[red]✗ RUNPOD_ENDPOINT_ID not found[/red]")
+        console.print("[yellow]Please set it in .env file or pass --endpoint-id[/yellow]")
+        console.print("[yellow]Create an endpoint at: https://www.runpod.io/console/serverless[/yellow]")
+        return
+
     # Setup output path
     if output is None:
         output = Path.cwd() / "chatterbox_output" / f"speech_{int(time.time())}.wav"
@@ -288,22 +212,14 @@ def speak(
     table.add_row("CFG Weight", str(cfg_weight))
     table.add_row("Temperature", str(temperature))
     table.add_row("Voice", voice)
-    table.add_row("GPU Type", gpu)
+    table.add_row("Endpoint ID", endpoint_id)
     table.add_row("Output File", str(output))
     console.print(table)
 
     # Initialize client
-    client = ChatterboxRunpodClient(api_key)
+    client = ChatterboxRunpodClient(api_key, endpoint_id)
 
     try:
-        # Create endpoint
-        client.create_endpoint(gpu_type=gpu)
-
-        # Wait for ready
-        if not client.wait_for_endpoint():
-            console.print("[red]Endpoint failed to initialize[/red]")
-            return
-
         # Synthesize speech
         audio_bytes = client.synthesize_speech(
             text=text,
@@ -326,9 +242,9 @@ def speak(
 
         console.print(f"\n[bold green]✓ Synthesis complete![/bold green]\n")
 
-    finally:
-        # Cleanup
-        client.delete_endpoint()
+    except Exception as e:
+        console.print(f"\n[red]✗ Error: {e}[/red]\n")
+        raise
 
 
 if __name__ == "__main__":
