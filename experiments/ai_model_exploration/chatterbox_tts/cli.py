@@ -84,34 +84,26 @@ class ChatterboxRunpodClient:
     def synthesize_speech(
         self,
         text: str,
-        exaggeration: float = 0.5,
-        cfg_weight: float = 0.5,
-        temperature: float = 1.0,
-        voice: str = "default",
     ) -> bytes:
         """Synthesize speech from text.
 
         Args:
             text: Input text to synthesize
-            exaggeration: Emotion exaggeration (0.25-2.0)
-            cfg_weight: Classifier-free guidance weight (0.0-1.0)
-            temperature: Sampling temperature (0.05-5.0)
-            voice: Voice name (default or custom)
 
         Returns:
             WAV audio bytes
+
+        Note:
+            Chatterbox Turbo model doesn't support exaggeration, cfg_weight, or min_p.
+            The model has a simplified API optimized for speed.
         """
         console.print(f"\n[yellow]Synthesizing speech...[/yellow]")
         console.print(f"[dim]Text: {text[:100]}{'...' if len(text) > 100 else ''}[/dim]")
 
-        # Prepare request payload
+        # Prepare request payload (Turbo model only needs text)
         payload = {
             "input": {
                 "text": text,
-                "exaggeration": exaggeration,
-                "cfg_weight": cfg_weight,
-                "temperature": temperature,
-                "voice": voice,
             }
         }
 
@@ -287,11 +279,7 @@ def preprocess(input_file: Path, output_file: Path) -> None:
 @click.argument("text", type=str, required=False)
 @click.option("--file", "-F", type=click.Path(exists=True, path_type=Path), help="Read text from file")
 @click.option("--save-preprocessed", type=click.Path(path_type=Path), help="Save preprocessed text to file")
-@click.option("--exaggeration", "-e", default=0.5, type=float, help="Emotion exaggeration (0.25-2.0)")
-@click.option("--cfg-weight", "-c", default=0.5, type=float, help="CFG weight (0.0-1.0)")
-@click.option("--temperature", "-t", default=1.0, type=float, help="Temperature (0.05-5.0)")
 @click.option("--speed", "-s", default=0.85, type=float, help="Playback speed (0.5-2.0, default 0.85 for slower)")
-@click.option("--voice", "-v", default="default", help="Voice name")
 @click.option("--output", "-o", type=click.Path(path_type=Path), default=None, help="Output file path")
 @click.option("--format", "-f", type=click.Choice(["wav", "mp3"]), default="wav", help="Output format (wav or mp3)")
 @click.option("--bitrate", "-b", default="192k", help="MP3 bitrate (e.g., 128k, 192k, 320k)")
@@ -301,11 +289,7 @@ def speak(
     text: str | None,
     file: Path | None,
     save_preprocessed: Path | None,
-    exaggeration: float,
-    cfg_weight: float,
-    temperature: float,
     speed: float,
-    voice: str,
     output: Path | None,
     format: str,
     bitrate: str,
@@ -388,11 +372,8 @@ def speak(
     if file:
         table.add_row("Input Source", f"File: {file.name}")
     table.add_row("Text Length", f"{len(text)} characters")
-    table.add_row("Exaggeration", str(exaggeration))
-    table.add_row("CFG Weight", str(cfg_weight))
-    table.add_row("Temperature", str(temperature))
+    table.add_row("Model", "Chatterbox Turbo (no parameter tuning)")
     table.add_row("Speed", f"{speed}x")
-    table.add_row("Voice", voice)
     table.add_row("Format", format.upper())
     if format == "mp3":
         table.add_row("Bitrate", bitrate)
@@ -404,14 +385,8 @@ def speak(
     client = ChatterboxRunpodClient(api_key, endpoint_id)
 
     try:
-        # Synthesize speech
-        audio_bytes = client.synthesize_speech(
-            text=text,
-            exaggeration=exaggeration,
-            cfg_weight=cfg_weight,
-            temperature=temperature,
-            voice=voice,
-        )
+        # Synthesize speech (Turbo model only needs text)
+        audio_bytes = client.synthesize_speech(text=text)
 
         # Save audio (always starts as WAV from Runpod)
         temp_wav = output.with_suffix(".wav.temp")

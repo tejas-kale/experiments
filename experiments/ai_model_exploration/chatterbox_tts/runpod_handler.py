@@ -114,24 +114,27 @@ def split_text_into_chunks(text: str, tokenizer, max_tokens: int = 950) -> list[
 
 
 def generate_long_audio(
-    text: str, model: ChatterboxTurboTTS, tokenizer, **kwargs
+    text: str, model: ChatterboxTurboTTS, tokenizer
 ) -> torch.Tensor:
     """Generate audio for text longer than 1000 tokens by chunking.
 
     Args:
         text: Input text (any length)
-        model: Chatterbox model
+        model: Chatterbox Turbo model
         tokenizer: Model's tokenizer
-        **kwargs: Parameters to pass to model.generate()
 
     Returns:
         Concatenated audio waveform
+
+    Note:
+        Turbo model doesn't support exaggeration, cfg_weight, or min_p parameters.
+        Only text input is used.
     """
     total_tokens = count_tokens(text, tokenizer)
 
     if total_tokens <= 950:
         print(f"Text has {total_tokens} tokens, generating directly...")
-        return model.generate(text, **kwargs)
+        return model.generate(text)
 
     print(f"Text has {total_tokens} tokens (exceeds 1000 limit)")
     chunks = split_text_into_chunks(text, tokenizer, max_tokens=950)
@@ -141,7 +144,7 @@ def generate_long_audio(
     for i, chunk in enumerate(chunks, 1):
         chunk_tokens = count_tokens(chunk, tokenizer)
         print(f"  Chunk {i}/{len(chunks)}: {chunk_tokens} tokens")
-        wav = model.generate(chunk, **kwargs)
+        wav = model.generate(chunk)
         audio_chunks.append(wav)
 
     print("Concatenating audio chunks...")
@@ -163,9 +166,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
         # Get parameters
         text = job_input["text"]
-        exaggeration = job_input.get("exaggeration", 0.5)
-        cfg_weight = job_input.get("cfg_weight", 0.5)
-        temperature = job_input.get("temperature", 1.0)
+        # Note: Turbo model doesn't support exaggeration, cfg_weight, min_p
+        # Only temperature is supported if the model accepts it
 
         # Load model
         tts_model = load_model()
@@ -196,14 +198,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         # Run inference with automatic chunking for long text
         print(f"Synthesizing speech for text: {text[:50]}...")
 
-        wav = generate_long_audio(
-            text,
-            tts_model,
-            tokenizer,
-            exaggeration=exaggeration,
-            cfg_weight=cfg_weight,
-            temperature=temperature,
-        )
+        # Turbo model has simple API - just pass text
+        wav = generate_long_audio(text, tts_model, tokenizer)
 
         # Encode audio as base64
         buffer = io.BytesIO()

@@ -156,8 +156,8 @@ python cli.py speak "Your text here" \
 
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
-| `--exaggeration` | `-e` | `0.5` | Emotion intensity (0.25-2.0) |
-| `--cfg-weight` | `-c` | `0.5` | Guidance weight (0.0-1.0) |
+| `--exaggeration` | `-e` | `1.0` | Emotion intensity (0.25-2.0) |
+| `--cfg-weight` | `-c` | `0.7` | Guidance weight (0.0-1.0) |
 | `--temperature` | `-t` | `1.0` | Sampling randomness (0.05-5.0) |
 | `--speed` | `-s` | `0.85` | Playback speed (0.5-2.0, slower for better comprehension) |
 | `--voice` | `-v` | `default` | Voice name |
