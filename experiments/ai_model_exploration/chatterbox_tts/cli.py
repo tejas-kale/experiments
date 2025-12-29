@@ -238,6 +238,52 @@ def cli() -> None:
 
 
 @cli.command()
+@click.argument("input_file", type=click.Path(exists=True, path_type=Path))
+@click.argument("output_file", type=click.Path(path_type=Path))
+def preprocess(input_file: Path, output_file: Path) -> None:
+    """Preprocess a text file and save the cleaned version.
+
+    This command only preprocesses the text without synthesizing speech.
+    Useful for reviewing what will be sent to Chatterbox.
+    """
+    console.print()
+    console.print(Panel.fit(
+        "[bold cyan]Text Preprocessing[/bold cyan]\n"
+        "[dim]Clean formatting for TTS[/dim]",
+        border_style="cyan",
+    ))
+
+    # Read input
+    console.print(f"\n[cyan]Reading {input_file}...[/cyan]")
+    raw_text = input_file.read_text(encoding="utf-8").strip()
+
+    if not raw_text:
+        console.print("[red]✗ File is empty[/red]")
+        return
+
+    # Preprocess
+    console.print(f"[yellow]Preprocessing...[/yellow]")
+    cleaned_text = preprocess_text(raw_text)
+
+    # Save
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text(cleaned_text, encoding="utf-8")
+
+    # Show stats
+    table = Table(title="Preprocessing Results", show_header=False)
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="yellow")
+    table.add_row("Original length", f"{len(raw_text)} characters")
+    table.add_row("Cleaned length", f"{len(cleaned_text)} characters")
+    table.add_row("Change", f"{len(cleaned_text) - len(raw_text):+d} characters")
+    table.add_row("Output file", str(output_file))
+    console.print()
+    console.print(table)
+
+    console.print(f"\n[bold green]✓ Preprocessed text saved to {output_file}[/bold green]\n")
+
+
+@cli.command()
 @click.argument("text", type=str, required=False)
 @click.option("--file", "-F", type=click.Path(exists=True, path_type=Path), help="Read text from file")
 @click.option("--save-preprocessed", type=click.Path(path_type=Path), help="Save preprocessed text to file")
