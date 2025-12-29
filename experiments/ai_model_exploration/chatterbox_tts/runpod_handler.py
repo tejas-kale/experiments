@@ -170,8 +170,28 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         # Load model
         tts_model = load_model()
 
-        # Get tokenizer for chunking
-        tokenizer = tts_model.text_encoder.tokenizer
+        # Get tokenizer for chunking (try different paths)
+        if hasattr(tts_model, "text_encoder"):
+            tokenizer = tts_model.text_encoder.tokenizer
+        elif hasattr(tts_model, "tokenizer"):
+            tokenizer = tts_model.tokenizer
+        elif hasattr(tts_model, "text_embedder") and hasattr(
+            tts_model.text_embedder, "tokenizer"
+        ):
+            tokenizer = tts_model.text_embedder.tokenizer
+        else:
+            # Search for tokenizer in model attributes
+            tokenizer = None
+            for attr_name in dir(tts_model):
+                if not attr_name.startswith("_"):
+                    attr = getattr(tts_model, attr_name, None)
+                    if attr and hasattr(attr, "tokenizer"):
+                        tokenizer = attr.tokenizer
+                        break
+            if tokenizer is None:
+                raise AttributeError(
+                    "Could not find tokenizer in ChatterboxTurboTTS model"
+                )
 
         # Run inference with automatic chunking for long text
         print(f"Synthesizing speech for text: {text[:50]}...")
