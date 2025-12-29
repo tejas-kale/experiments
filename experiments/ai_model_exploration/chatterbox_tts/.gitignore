@@ -6,7 +6,8 @@ chatterbox_output/
 batch/
 test*/
 
-# Audio files (optional - you may want to keep these)
+# Generated files
+*.txt
 *.wav
 *.mp3
 
