@@ -240,6 +240,7 @@ def cli() -> None:
 @cli.command()
 @click.argument("text", type=str, required=False)
 @click.option("--file", "-F", type=click.Path(exists=True, path_type=Path), help="Read text from file")
+@click.option("--save-preprocessed", type=click.Path(path_type=Path), help="Save preprocessed text to file")
 @click.option("--exaggeration", "-e", default=1.0, type=float, help="Emotion exaggeration (0.25-2.0)")
 @click.option("--cfg-weight", "-c", default=0.7, type=float, help="CFG weight (0.0-1.0)")
 @click.option("--temperature", "-t", default=1.0, type=float, help="Temperature (0.05-5.0)")
@@ -253,6 +254,7 @@ def cli() -> None:
 def speak(
     text: str | None,
     file: Path | None,
+    save_preprocessed: Path | None,
     exaggeration: float,
     cfg_weight: float,
     temperature: float,
@@ -294,7 +296,15 @@ def speak(
         # Preprocess text to clean formatting issues
         text = preprocess_text(raw_text)
         console.print(f"[green]✓ Loaded {len(text)} characters from file[/green]")
-        console.print(f"[dim]Preprocessed: removed formatting/indentation[/dim]\n")
+        console.print(f"[dim]Preprocessed: removed formatting/indentation[/dim]")
+
+        # Save preprocessed text if requested
+        if save_preprocessed:
+            save_preprocessed.parent.mkdir(parents=True, exist_ok=True)
+            save_preprocessed.write_text(text, encoding="utf-8")
+            console.print(f"[green]✓ Saved preprocessed text to {save_preprocessed}[/green]")
+
+        console.print()
 
     # Validate API key
     api_key = os.getenv("RUNPOD_API_KEY")
