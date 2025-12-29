@@ -63,13 +63,13 @@ def count_tokens(text: str, tokenizer) -> int:
     return len(tokens)
 
 
-def split_text_into_chunks(text: str, tokenizer, max_tokens: int = 950) -> list[str]:
+def split_text_into_chunks(text: str, tokenizer, max_tokens: int = 100) -> list[str]:
     """Split text into chunks at sentence boundaries, keeping under max_tokens.
 
     Args:
         text: Input text to split
         tokenizer: Model's tokenizer
-        max_tokens: Maximum tokens per chunk (default 950 for buffer)
+        max_tokens: Maximum tokens per chunk (default 100 for testing)
 
     Returns:
         List of text chunks
@@ -132,12 +132,12 @@ def generate_long_audio(
     """
     total_tokens = count_tokens(text, tokenizer)
 
-    if total_tokens <= 950:
+    if total_tokens <= 100:
         print(f"Text has {total_tokens} tokens, generating directly...")
         return model.generate(text)
 
-    print(f"Text has {total_tokens} tokens (exceeds 1000 limit)")
-    chunks = split_text_into_chunks(text, tokenizer, max_tokens=950)
+    print(f"Text has {total_tokens} tokens (exceeds 100 token limit)")
+    chunks = split_text_into_chunks(text, tokenizer, max_tokens=100)
     print(f"Split into {len(chunks)} chunks")
 
     audio_chunks = []
