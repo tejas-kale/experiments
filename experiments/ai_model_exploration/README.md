@@ -13,8 +13,43 @@ Both projects include:
 - Full CLI interfaces for local control
 - Runpod integration for GPU-accelerated inference
 - Secure data transfer with encryption
-- Automatic instance management (create, use, delete)
+- Automatic instance management
 - Comprehensive documentation and test cases
+- **NEW**: Automated setup CLI for templates and endpoints
+
+---
+
+## Quick Start
+
+### **Option 1: Automated Setup (Recommended)**
+
+Use the setup CLI to create templates and endpoints automatically:
+
+```bash
+cd experiments/ai_model_exploration
+
+# Install dependencies
+source ../../.venv/bin/activate
+uv pip install click rich requests python-dotenv
+
+# Set up Chatterbox TTS
+python setup_cli.py setup-chatterbox
+
+# Or set up Qwen-Image-Layered
+python setup_cli.py setup-qwen
+```
+
+The setup CLI will:
+1. Create Runpod template via API
+2. Create serverless endpoint with auto-scaling
+3. Save credentials to `.env` file
+4. Show you the test command
+
+### **Option 2: Manual Setup**
+
+Follow the detailed SETUP.md guides:
+- [Chatterbox TTS Setup](chatterbox_tts/SETUP.md)
+- [Qwen-Image-Layered Setup](qwen_image_layered/SETUP.md)
 
 ---
 
@@ -34,7 +69,7 @@ Both projects include:
 
 **Cost with $9 budget**: ~375-450 images
 
-**Quick Start**:
+**Quick Test**:
 ```bash
 cd qwen_image_layered
 python cli.py generate your_image.jpg --layers 4
@@ -59,7 +94,7 @@ python cli.py generate your_image.jpg --layers 4
 
 **Cost with $9 budget**: ~900-1,285 speech clips
 
-**Quick Start**:
+**Quick Test**:
 ```bash
 cd chatterbox_tts
 python cli.py speak "Hello! This is a test." --exaggeration 1.5
@@ -69,42 +104,27 @@ python cli.py speak "Hello! This is a test." --exaggeration 1.5
 
 ---
 
-## Setup Guide
+## Setup CLI Commands
 
-### Prerequisites
-
-1. **Runpod Account**: Sign up at [runpod.io](https://www.runpod.io)
-2. **API Key**: Get from [Runpod Console](https://www.runpod.io/console/user/settings)
-3. **Credits**: Add at least $9 to your account
-4. **Python 3.11+**: Required for local CLI
-
-### Quick Setup (Both Projects)
+### Create Templates and Endpoints
 
 ```bash
-# Navigate to repository root
-cd experiments/
+# Chatterbox TTS
+python setup_cli.py setup-chatterbox
 
-# Activate virtual environment
-source .venv/bin/activate
-
-# Setup Qwen-Image-Layered
-cd ai_model_exploration/qwen_image_layered
-uv pip install -r requirements.txt
-cp .env.example .env
-# Edit .env and add RUNPOD_API_KEY
-
-# Setup Chatterbox TTS
-cd ../chatterbox_tts
-uv pip install -r requirements.txt
-cp .env.example .env
-# Edit .env and add RUNPOD_API_KEY
+# Qwen-Image-Layered
+python setup_cli.py setup-qwen
 ```
 
-### One-Time Runpod Template Setup
+### List Existing Resources
 
-Both projects require custom Runpod templates. Follow the setup instructions in each project's README:
-- [Qwen Template Setup](qwen_image_layered/README.md#5-setup-runpod-template-one-time-setup)
-- [Chatterbox Template Setup](chatterbox_tts/README.md#5-setup-runpod-template-one-time-setup)
+```bash
+# List all templates
+python setup_cli.py list-templates
+
+# List all endpoints
+python setup_cli.py list-endpoints
+```
 
 ---
 
@@ -134,31 +154,34 @@ Both projects require custom Runpod templates. Follow the setup instructions in 
 
 ## Architecture
 
-Both projects follow the same client-server architecture:
+Both projects follow a REST API client-server architecture:
 
 ```
 ┌──────────────────────────────────────────┐
 │           Local Machine (CLI)            │
-│  • Send requests (image/text)            │
-│  • Manage Runpod instances               │
-│  • Download results                       │
+│  • Submit jobs to endpoint               │
+│  • Poll for results                      │
+│  • Download and save outputs             │
 └──────────────┬───────────────────────────┘
                │
-               │ HTTPS + Encryption
+               │ HTTPS REST API
+               │ POST /run (submit job)
+               │ GET /status/{job_id}
                │
 ┌──────────────▼───────────────────────────┐
 │         Runpod GPU Instance              │
-│  • Load model (cached)                   │
-│  • Run inference                          │
-│  • Return results                         │
+│  • Auto-scales from 0 workers            │
+│  • Loads model (cached)                  │
+│  • Runs inference                        │
+│  • Returns results                       │
 └──────────────────────────────────────────┘
 ```
 
 **Security**:
 - All data transfer over HTTPS
 - Base64 encoding for images/audio
-- API key authentication
-- Automatic instance cleanup
+- API key authentication (Bearer token)
+- Auto-scaling endpoints (no lingering costs)
 
 ---
 
@@ -187,43 +210,73 @@ Both projects follow the same client-server architecture:
 ```
 ai_model_exploration/
 ├── README.md                    # This file
+├── API_VALIDATION.md            # Implementation validation against API docs
+├── setup_cli.py                 # Automated template/endpoint creation
 ├── qwen_image_layered/
-│   ├── cli.py                   # CLI client
+│   ├── cli.py                   # CLI client (REST API)
 │   ├── runpod_handler.py        # Runpod inference handler
 │   ├── requirements.txt         # Dependencies
 │   ├── .env.example            # Environment template
 │   ├── .gitignore              # Git ignore rules
+│   ├── SETUP.md                # Manual setup guide
 │   └── README.md               # Full documentation
 └── chatterbox_tts/
-    ├── cli.py                   # CLI client
+    ├── cli.py                   # CLI client (REST API)
     ├── runpod_handler.py        # Runpod inference handler
     ├── requirements.txt         # Dependencies
     ├── .env.example            # Environment template
     ├── .gitignore              # Git ignore rules
+    ├── SETUP.md                # Manual setup guide
     └── README.md               # Full documentation
 ```
 
 ---
 
+## API Implementation
+
+All implementations validated against official Runpod API documentation.
+
+**REST API Endpoints Used**:
+- `POST /v2/{endpoint_id}/run` - Submit async job
+- `GET /v2/{endpoint_id}/status/{job_id}` - Check status
+
+**GraphQL API** (setup CLI only):
+- `mutation SaveTemplate` - Create templates
+- `mutation SaveEndpoint` - Create endpoints
+- `query myself` - List resources
+
+See [API_VALIDATION.md](API_VALIDATION.md) for detailed validation.
+
+---
+
 ## Tips for Maximizing Your $9 Budget
 
-1. **Delete endpoints immediately**: Both CLIs auto-delete, but double-check in Runpod console
-2. **Batch your work**: Process multiple images/texts in one session
-3. **Start with Chatterbox**: It's cheaper and faster for testing the setup
-4. **Use recommended GPUs**: They offer the best cost/performance
+1. **Use automated setup**: Faster and less error-prone
+2. **Auto-scaling endpoints**: No charges when idle (5-second timeout)
+3. **Start with Chatterbox**: It's cheaper and faster for testing
+4. **Use recommended GPUs**: Best cost/performance ratios
 5. **Monitor spending**: Check Runpod console regularly
-6. **Test locally first**: Ensure inputs are valid before using GPU time
+6. **Test locally first**: Validate inputs before using GPU time
 
 ---
 
 ## Troubleshooting
 
-### Both Projects
+### Setup CLI Issues
 
-- **API Key Issues**: Ensure `.env` file has correct `RUNPOD_API_KEY`
-- **Template Not Found**: Complete one-time template setup in Runpod console
-- **No Credits**: Add funds to Runpod account
-- **Endpoint Timeout**: First run takes 3-5 minutes to download models
+**GraphQL errors**: Ensure your API key has correct permissions
+
+**Template creation fails**: Check Docker image name and start command
+
+**Endpoint creation fails**: Verify template ID exists
+
+### CLI Issues
+
+**"Endpoint not ready"**: Wait 2-3 minutes after creation
+
+**First run slow**: Model downloads take 3-10 minutes (one-time)
+
+**Job failed**: Check Runpod endpoint logs in console
 
 ### Project-Specific
 
@@ -235,9 +288,15 @@ See individual READMEs for detailed troubleshooting:
 
 ## Next Steps
 
-1. **Complete setup** for both projects (install deps, configure API keys)
-2. **Create Runpod templates** (one-time, ~10 minutes each)
+1. **Automated setup** (recommended):
+   ```bash
+   python setup_cli.py setup-chatterbox
+   ```
+
+2. **Or manual setup** following SETUP.md guides
+
 3. **Run test cases** to validate setup
+
 4. **Experiment** with your own use cases!
 
 ---
@@ -255,8 +314,8 @@ See individual READMEs for detailed troubleshooting:
 - [Hugging Face Model](https://huggingface.co/ResembleAI/chatterbox)
 
 ### Runpod
-- [Runpod Documentation](https://docs.runpod.io/)
-- [Serverless Guide](https://docs.runpod.io/serverless/overview)
+- [Runpod API Documentation](https://docs.runpod.io/api-reference/overview)
+- [Serverless Guide](https://docs.runpod.io/serverless/endpoints/get-started)
 - [Pricing Calculator](https://www.runpod.io/pricing)
 
 ---
