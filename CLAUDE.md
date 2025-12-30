@@ -118,6 +118,80 @@ python epub_to_md.py <path/to/book.epub> <output_dir> [options]
 - `db/`: Database files
 - `raw/`: Raw data files
 
+### 5. Chatterbox TTS (`experiments/ai_model_exploration/chatterbox_tts/`)
+
+**Type**: CLI application + Runpod serverless deployment
+**Tech Stack**: Python 3.11+, Chatterbox Turbo TTS, Runpod, Rich, pydub
+**Purpose**: High-quality text-to-speech synthesis for long-form content (articles, books) using GPU inference
+
+**Key Files**:
+- `cli.py`: Command-line interface for local text-to-speech requests
+- `runpod_handler.py`: Serverless worker running on Runpod GPU instances
+- `debug_chatterbox.ipynb`: Minimal Colab notebook for testing chunking logic
+- `Dockerfile`: Container configuration for Runpod deployment
+- `README.md`: Comprehensive setup, usage, and troubleshooting guide
+
+**Running**:
+```bash
+cd experiments/ai_model_exploration/chatterbox_tts
+source ../../../.venv/bin/activate
+uv pip install -r requirements.txt
+
+# Setup .env with RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID
+cp .env.example .env
+
+# Generate speech from text
+python cli.py speak "Your text here"
+
+# Generate from file with MP3 output
+python cli.py speak --file article.txt --format mp3 --output article.mp3
+```
+
+**Architecture Notes**:
+- **Model**: Chatterbox Turbo (350M parameters, 10x faster than standard model)
+- **Critical Limitation**: Turbo model does NOT support tuning parameters (exaggeration, cfg_weight, min_p)
+  - Only accepts text input - any parameters are silently ignored and produce gibberish
+  - Use simple API: `model.generate(text)` with no additional arguments
+- **Token Limit**: 100 tokens per chunk (configurable, originally 1000)
+- **Text Chunking**: Automatic splitting at sentence boundaries using regex, concatenates audio with torch.cat()
+- **Text Preprocessing**: Cleans formatting artifacts (indentation, line breaks, multiple spaces)
+- **Deployment**: Runpod serverless with GitHub integration, RTX 3060 Ti GPU (~$0.14/hour)
+- **Auto-scaling**: Min workers = 0, only pay for inference time (~$0.001-0.002 per 30s clip)
+- **Audio Processing**: WAV generation → optional speed adjustment (default 0.85x) → MP3 conversion
+
+**Key Options**:
+- `--file/-F`: Read text from file
+- `--save-preprocessed`: Save cleaned text for review
+- `--speed/-s`: Playback speed (0.5-2.0, default: 0.85)
+- `--format/-f`: Output format (wav or mp3)
+- `--bitrate/-b`: MP3 bitrate (128k, 192k, 320k)
+- `--output/-o`: Custom output path
+- `--play/--no-play`: Auto-play after generation
+
+**Tokenizer Discovery Pattern** (reusable for HuggingFace models):
+```python
+# Try multiple paths for tokenizer location
+if hasattr(model, "text_encoder"):
+    tokenizer = model.text_encoder.tokenizer
+elif hasattr(model, "tokenizer"):
+    tokenizer = model.tokenizer
+elif hasattr(model, "text_embedder"):
+    tokenizer = model.text_embedder.tokenizer
+else:
+    # Fallback: search all attributes
+    for attr_name in dir(model):
+        attr = getattr(model, attr_name, None)
+        if attr and hasattr(attr, "tokenizer"):
+            tokenizer = attr.tokenizer
+            break
+```
+
+**Setup Requirements**:
+- Runpod API key (from runpod.io/console/user/settings)
+- Runpod endpoint deployed with Chatterbox Docker image
+- HF_TOKEN environment variable set in Runpod endpoint config
+- GitHub integration recommended for automatic rebuilds
+
 ## Development Guidelines
 
 ### Adding New Experiments
