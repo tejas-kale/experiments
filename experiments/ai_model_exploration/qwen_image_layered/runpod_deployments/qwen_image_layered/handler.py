@@ -11,6 +11,28 @@ from typing import Any
 
 import runpod
 import torch
+
+# Robust workaround for diffusers expecting torch.xpu to exist
+# We use an instance with __getattr__ to swallow all unknown method calls
+if not hasattr(torch, "xpu"):
+    class MockXPU:
+        def is_available(self):
+            return False
+        
+        def device_count(self):
+            return 0
+            
+        def empty_cache(self):
+            pass
+            
+        def __getattr__(self, name):
+            # Return a dummy function for any other attribute (like manual_seed)
+            def dummy(*args, **kwargs):
+                return None
+            return dummy
+
+    torch.xpu = MockXPU()
+
 from diffusers import QwenImageLayeredPipeline
 from PIL import Image
 
@@ -34,7 +56,7 @@ def load_model() -> QwenImageLayeredPipeline:
             "Qwen/Qwen-Image-Layered",
             torch_dtype=torch.bfloat16,  # Use bf16 for better quality
         )
-        pipeline = pipeline.to("cuda")
+        pipeline.enable_sequential_cpu_offload()
 
         print("Model loaded successfully!")
 

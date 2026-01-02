@@ -1,5 +1,17 @@
 # Qwen-Image-Layered on Runpod
 
+> **⚠️ STATUS: EXPERIMENTAL & UNSTABLE**
+> 
+> **Current Issues (Jan 2026):**
+> 1. **PyTorch Version Conflict:** The `diffusers` library (via `transformers`) requires PyTorch 2.3+ for `enable_gqa` support, but the Runpod environment may persistently default to PyTorch 2.1.0 despite upgrade attempts. This causes `unexpected keyword argument 'enable_gqa'` errors.
+> 2. **Environment Persistence:** Upgrading the base Docker image in the template does not always guarantee a fresh environment on the endpoint due to caching.
+> 3. **Workarounds Applied:**
+>    - Explicitly forcing `torch>=2.4.0` installation in the handler.
+>    - Using `enable_sequential_cpu_offload()` to mitigate VRAM limits.
+>    - Increasing container disk to 80GB to avoid storage I/O errors.
+>
+> **Recommended Fix:** If errors persist, delete the template and endpoint entirely from the Runpod console and re-run `configure` to force a clean slate.
+
 A CLI tool to run Qwen-Image-Layered on Runpod GPU instances for image layer decomposition.
 
 ## What is Qwen-Image-Layered?
@@ -34,9 +46,124 @@ Qwen-Image-Layered is a state-of-the-art image decomposition model that takes im
 
 ---
 
+## Installation
+
+### Option 1: Install as a uv Tool (Recommended)
+
+Install directly using uv:
+
+```bash
+uv tool install qwen-image-layered
+```
+
+Or install from source:
+
+```bash
+git clone https://github.com/tejas-kale/experiments.git
+cd experiments/experiments/ai_model_exploration/qwen_image_layered
+uv tool install .
+```
+
+### Option 2: Install in a Virtual Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/tejas-kale/experiments.git
+cd experiments/experiments/ai_model_exploration/qwen_image_layered
+
+# Create and activate virtual environment
+uv venv
+source .venv/bin/activate  # On macOS/Linux
+
+# Install the package
+uv pip install -e .
+```
+
+---
+
+## Quick Start
+
+### 1. Configure Runpod (One-Time Setup)
+
+Set your Runpod API key and run the configure command:
+
+```bash
+export RUNPOD_API_KEY=your_api_key_here
+qwen-image-layered configure
+```
+
+This will:
+- Create a Runpod template with the Qwen-Image-Layered handler
+- Deploy a serverless endpoint (RTX 3090 by default)
+- Save configuration to `~/.qwen-image-layered/config.json`
+
+**Get your API key**: [Runpod Console → Settings](https://www.runpod.io/console/user/settings)
+
+### 2. Generate Layers
+
+```bash
+qwen-image-layered generate image.jpg
+```
+
+That's it! The layers will be saved to `./qwen_output/` by default.
+
+---
+
+## Usage
+
+### Configure Command
+
+```bash
+# Basic configuration (uses RTX 3090)
+qwen-image-layered configure
+
+# Use a different GPU
+qwen-image-layered configure --gpu-type "NVIDIA RTX 4090"
+
+# Specify custom Docker image
+qwen-image-layered configure --docker-image custom/image:tag
+```
+
+**Options**:
+- `--api-key`: Runpod API key (or set `RUNPOD_API_KEY` env var)
+- `--docker-image`: Base Docker image (default: `runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04`)
+- `--gpu-type`: GPU type (default: `NVIDIA RTX 3090`)
+
+### Generate Command
+
+```bash
+# Basic usage
+qwen-image-layered generate image.jpg
+
+# Customize parameters
+qwen-image-layered generate image.jpg \
+  --layers 8 \
+  --resolution 1024 \
+  --steps 50 \
+  --cfg-scale 4.0 \
+  --output-dir ./my_output
+```
+
+**Options**:
+- `--layers`, `-l`: Number of layers (3, 4, or 8) - default: 4
+- `--resolution`, `-r`: Output resolution (640 or 1024) - default: 640
+- `--steps`, `-s`: Inference steps - default: 50
+- `--cfg-scale`, `-c`: CFG scale - default: 4.0
+- `--output-dir`, `-o`: Output directory - default: `./qwen_output`
+
+### Info Command
+
+View your current configuration:
+
+```bash
+qwen-image-layered info
+```
+
+---
+
 ## Requirements
 
-### Local Machine (CLI)
+### Local Machine
 - Python 3.11+
 - macOS (developed and tested)
 - Runpod account with API key
@@ -52,200 +179,6 @@ Qwen-Image-Layered is a state-of-the-art image decomposition model that takes im
 - **VRAM Requirements**:
   - bfloat16 (full precision): 24-40GB
   - fp8mixed (quantized): 12-16GB
-
----
-
-## Installation & Setup
-
-### 1. Clone and Navigate
-
-```bash
-cd experiments/ai_model_exploration/qwen_image_layered
-```
-
-### 2. Create Virtual Environment
-
-```bash
-# From repository root
-source .venv/bin/activate
-
-# Or create new environment
-uv venv
-source .venv/bin/activate
-```
-
-### 3. Install Dependencies
-
-```bash
-uv pip install -r requirements.txt
-```
-
-### 4. Configure Runpod API Key
-
-1. Get your API key from [Runpod Console](https://www.runpod.io/console/user/settings)
-2. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-3. Edit `.env` and add your API key:
-   ```
-   RUNPOD_API_KEY=your_actual_api_key_here
-   ```
-
-### 5. Setup Runpod Template (One-Time Setup)
-
-You need to create a custom Runpod template with the handler script:
-
-1. Go to [Runpod Templates](https://www.runpod.io/console/serverless/user/templates)
-2. Click "New Template"
-3. Configure:
-   - **Template Name**: `runpod-qwen-image-layered`
-   - **Container Image**: `runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04`
-   - **Container Disk**: 20 GB
-   - **Start Command**:
-     ```bash
-     pip install git+https://github.com/huggingface/diffusers transformers>=4.51.3 torch torchvision runpod && python runpod_handler.py
-     ```
-   - **Environment Variables**:
-     - `MODEL_NAME`: `Qwen/Qwen-Image-Layered`
-4. Upload `runpod_handler.py` to the template
-5. Save template
-
----
-
-## Usage
-
-### Basic Command
-
-```bash
-python cli.py generate <image_path>
-```
-
-### Full Options
-
-```bash
-python cli.py generate <image_path> \
-  --layers 4 \
-  --resolution 640 \
-  --steps 50 \
-  --cfg-scale 4.0 \
-  --output-dir ./my_output \
-  --gpu "NVIDIA RTX 3090"
-```
-
-### Options Explained
-
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| `--layers` | `-l` | `4` | Number of layers (3, 4, or 8) |
-| `--resolution` | `-r` | `640` | Output resolution (640 or 1024px) |
-| `--steps` | `-s` | `50` | Inference steps (more = better quality, slower) |
-| `--cfg-scale` | `-c` | `4.0` | Classifier-free guidance scale |
-| `--output-dir` | `-o` | `./qwen_output` | Output directory for layers |
-| `--gpu` | | `NVIDIA RTX 3090` | GPU type to use |
-
----
-
-## Test Cases
-
-### Test Case 1: Portrait Photo Layer Separation
-
-**Objective**: Decompose a portrait photo into background, subject, and detail layers for easy background replacement.
-
-**Input Image**: Portrait photo with clear subject-background separation (e.g., person against a landscape)
-
-**Command**:
-```bash
-python cli.py generate portrait.jpg \
-  --layers 4 \
-  --resolution 640 \
-  --output-dir ./test_portrait
-```
-
-**Expected Output**:
-- `layer_00.png`: Background layer
-- `layer_01.png`: Main subject (person)
-- `layer_02.png`: Hair/detail elements
-- `layer_03.png`: Foreground elements
-
-**What to Try**:
-1. Open layers in an image editor (Photoshop, GIMP, Pixelmator)
-2. Replace `layer_00.png` (background) with a different background
-3. Adjust `layer_01.png` (subject) color/position independently
-4. Delete `layer_03.png` to remove foreground elements
-
-**Validation**:
-- Each layer should have transparent regions (RGBA)
-- Stacking all layers should reconstruct the original image
-- Individual layers should be independently editable
-
----
-
-### Test Case 2: Product Photography for E-commerce
-
-**Objective**: Separate product from background for catalog use with different backgrounds.
-
-**Input Image**: Product photo (e.g., shoe, gadget, furniture) with complex background
-
-**Command**:
-```bash
-python cli.py generate product.jpg \
-  --layers 3 \
-  --resolution 1024 \
-  --steps 50 \
-  --output-dir ./test_product
-```
-
-**Expected Output**:
-- `layer_00.png`: Background
-- `layer_01.png`: Main product
-- `layer_02.png`: Product shadows/reflections
-
-**What to Try**:
-1. Export `layer_01.png` (product) for use in e-commerce catalog
-2. Create multiple variations by changing `layer_00.png` background
-3. Adjust `layer_02.png` shadow opacity for different lighting effects
-4. Batch process multiple products for consistent catalog images
-
-**Validation**:
-- Product edges should be clean and artifact-free
-- Shadows/reflections should be separated from main product
-- Product layer should work on white, colored, or gradient backgrounds
-
----
-
-### Test Case 3: Complex Scene Decomposition
-
-**Objective**: Decompose a multi-element scene (e.g., still life, street scene) into maximum layers for detailed editing.
-
-**Input Image**: Complex scene with multiple objects at different depths (e.g., desk with laptop, coffee, plants)
-
-**Command**:
-```bash
-python cli.py generate complex_scene.jpg \
-  --layers 8 \
-  --resolution 640 \
-  --steps 50 \
-  --cfg-scale 4.0 \
-  --output-dir ./test_complex
-```
-
-**Expected Output**:
-- 8 separate RGBA layers, each containing different scene elements
-- Approximate layer separation by depth and object boundaries
-
-**What to Try**:
-1. Reorder layers to change depth perception
-2. Selectively hide/show layers to remove objects
-3. Apply different color grading to foreground vs background layers
-4. Create a "focus stack" effect by blurring distant layers
-5. Export individual objects by isolating specific layers
-
-**Validation**:
-- All 8 layers should have meaningful content
-- Objects at different depths should be on different layers
-- Stacking all layers should closely match original
-- Individual layers should allow for creative recombination
 
 ---
 
@@ -290,12 +223,11 @@ python cli.py generate complex_scene.jpg \
 
 ### Workflow
 
-1. **Endpoint Creation**: CLI creates a Runpod serverless endpoint with specified GPU
+1. **Configuration**: CLI creates Runpod template and endpoint via GraphQL API
 2. **Initialization**: Endpoint loads Qwen-Image-Layered model (~2-3 minutes first time)
 3. **Image Upload**: Input image is base64-encoded and sent via HTTPS
-4. **Inference**: Model generates specified number of layers (~1-3 minutes depending on resolution/steps)
+4. **Inference**: Model generates specified number of layers (~2-3 minutes)
 5. **Download**: Layers are base64-encoded, sent back, and saved as PNG files
-6. **Cleanup**: Endpoint is automatically deleted to stop billing
 
 ### Cost Estimation
 
@@ -307,46 +239,119 @@ python cli.py generate complex_scene.jpg \
 
 ---
 
-## Troubleshooting
+## Test Cases
 
-### Issue: `RUNPOD_API_KEY not found`
+### Test Case 1: Portrait Photo Layer Separation
 
-**Solution**: Ensure `.env` file exists with your API key:
+**Objective**: Decompose a portrait photo into background, subject, and detail layers.
+
 ```bash
-cp .env.example .env
-# Edit .env and add your key
+qwen-image-layered generate portrait.jpg \
+  --layers 4 \
+  --resolution 640 \
+  --output-dir ./test_portrait
 ```
 
-### Issue: `Failed to create endpoint`
+**Expected Output**:
+- `layer_00.png`: Background layer
+- `layer_01.png`: Main subject (person)
+- `layer_02.png`: Hair/detail elements
+- `layer_03.png`: Foreground elements
+
+**What to Try**:
+1. Replace background (`layer_00.png`) with a different image
+2. Adjust subject color/position independently
+3. Delete foreground elements
+
+### Test Case 2: Product Photography
+
+**Objective**: Separate product from background for e-commerce.
+
+```bash
+qwen-image-layered generate product.jpg \
+  --layers 3 \
+  --resolution 1024 \
+  --steps 50 \
+  --output-dir ./test_product
+```
+
+**Expected Output**:
+- `layer_00.png`: Background
+- `layer_01.png`: Main product
+- `layer_02.png`: Shadows/reflections
+
+### Test Case 3: Complex Scene Decomposition
+
+**Objective**: Decompose a multi-element scene into maximum layers.
+
+```bash
+qwen-image-layered generate complex_scene.jpg \
+  --layers 8 \
+  --resolution 640 \
+  --steps 50 \
+  --output-dir ./test_complex
+```
+
+**Expected Output**: 8 separate RGBA layers with different scene elements
+
+---
+
+## Troubleshooting
+
+### Issue: "Not configured yet"
+
+**Solution**: Run the configure command first:
+```bash
+export RUNPOD_API_KEY=your_key
+qwen-image-layered configure
+```
+
+### Issue: Configuration fails
 
 **Solution**:
 1. Verify API key is correct
 2. Check Runpod account has sufficient credits
-3. Ensure template `runpod-qwen-image-layered` exists
-4. Try different GPU type with `--gpu` option
+3. Try different GPU type: `--gpu-type "NVIDIA RTX A5000"`
 
-### Issue: `Timeout waiting for endpoint`
+### Issue: First generation is slow
 
-**Solution**:
-1. First run takes longer (~5 minutes) to download model weights
-2. Check Runpod console for endpoint status
-3. Increase timeout in code if necessary
-4. Try a less busy GPU type
+**Solution**: This is normal! The first request takes 5-10 minutes to download the model (~10GB). Subsequent requests are much faster (~2-3 minutes).
 
-### Issue: `Job failed during inference`
+### Issue: Job failed during inference
 
 **Solution**:
 1. Check input image is valid (JPEG/PNG)
-2. Try smaller resolution (640 instead of 1024)
-3. Reduce number of layers
-4. Check Runpod endpoint logs in console
+2. Try smaller resolution: `--resolution 640`
+3. Reduce number of layers: `--layers 3`
+4. Check Runpod logs in the [Runpod Console](https://www.runpod.io/console/serverless)
 
-### Issue: `Out of memory error`
+### Issue: Out of memory error
 
 **Solution**:
-1. Use RTX 4090 or A5000 instead of RTX 3090
+1. Reconfigure with RTX 4090: `qwen-image-layered configure --gpu-type "NVIDIA RTX 4090"`
 2. Reduce resolution to 640
-3. Model defaults to bfloat16; consider fp8 quantization for lower VRAM
+3. Model defaults to bfloat16 (requires 24GB VRAM)
+
+---
+
+## Project Structure
+
+```
+qwen_image_layered/
+├── src/qwen_image_layered/
+│   ├── __init__.py         # Package initialization
+│   ├── cli.py              # CLI commands
+│   ├── config.py           # Configuration management
+│   ├── client.py           # Runpod client
+│   └── runpod_manager.py   # Runpod API integration
+├── runpod_deployments/
+│   └── qwen_image_layered/
+│       ├── handler.py      # Serverless handler
+│       ├── Dockerfile      # Container config
+│       └── requirements.txt
+├── pyproject.toml          # Package configuration
+└── README.md               # This file
+```
 
 ---
 
@@ -356,42 +361,23 @@ cp .env.example .env
 
 ```bash
 # Budget option
-python cli.py generate image.jpg --gpu "NVIDIA RTX 3090"
+qwen-image-layered configure --gpu-type "NVIDIA RTX 3090"
 
 # Performance option
-python cli.py generate image.jpg --gpu "NVIDIA RTX 4090"
+qwen-image-layered configure --gpu-type "NVIDIA RTX 4090"
 
 # Balanced option
-python cli.py generate image.jpg --gpu "NVIDIA RTX A5000"
+qwen-image-layered configure --gpu-type "NVIDIA RTX A5000"
 ```
 
-### High-Resolution Processing
+### Environment Variables
 
-```bash
-# 1024px output (slower, better quality)
-python cli.py generate image.jpg --resolution 1024 --steps 50
-```
+You can override configuration file settings using environment variables:
 
-### Quick Preview Mode
-
-```bash
-# Faster inference (lower quality)
-python cli.py generate image.jpg --steps 25 --layers 3
-```
-
----
-
-## Project Structure
-
-```
-qwen_image_layered/
-├── cli.py                  # Local CLI client
-├── runpod_handler.py       # Runpod serverless handler
-├── requirements.txt        # Python dependencies
-├── .env.example           # Environment template
-├── .env                   # Your API key (gitignored)
-└── README.md              # This file
-```
+- `RUNPOD_API_KEY`: Runpod API key
+- `RUNPOD_ENDPOINT_ID`: Endpoint ID (overrides configured endpoint)
+- `RUNPOD_TEMPLATE_ID`: Template ID (overrides configured template)
+- `RUNPOD_GPU_TYPE`: GPU type (overrides configured GPU)
 
 ---
 

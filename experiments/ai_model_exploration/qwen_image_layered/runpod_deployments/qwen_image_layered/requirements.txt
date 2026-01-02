@@ -1,0 +1,7 @@
+git+https://github.com/huggingface/diffusers
+transformers>=4.51.3
+accelerate
+torch>=2.4.0
+torchvision
+pillow
+runpod
