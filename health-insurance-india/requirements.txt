@@ -1,0 +1,26 @@
+# Core
+anthropic>=0.18.0
+python-dotenv>=1.0.0
+
+# CLI
+typer>=0.9.0
+rich>=13.7.0
+
+# API
+fastapi>=0.109.0
+uvicorn>=0.27.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
+
+# PDF Processing
+PyMuPDF>=1.23.8
+
+# Web Scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+
+# Database
+sqlalchemy>=2.0.25
+
+# Utilities
+python-dateutil>=2.8.2
